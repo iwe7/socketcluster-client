@@ -1,30 +1,30 @@
-var assert = require('assert');
-var socketClusterServer = require('socketcluster-server');
-var socketClusterClient = require('../');
-var localStorage = require('localStorage');
+const assert = require('assert');
+const socketClusterServer = require('socketcluster-server');
+const socketClusterClient = require('../');
+const localStorage = require('localStorage');
 
 // Add to the global scope like in browser.
 global.localStorage = localStorage;
 
-var portNumber = 8008;
+let portNumber = 8008;
 
-var clientOptions;
-var serverOptions;
+let clientOptions;
+let serverOptions;
 
-var allowedUsers = {
+let allowedUsers = {
   bob: true,
   kate: true,
   alice: true
 };
 
-var server, client;
-var validSignedAuthTokenBob = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJvYiIsImV4cCI6MzE2Mzc1ODk3ODIxNTQ4NywiaWF0IjoxNTAyNzQ3NzQ2fQ.GLf_jqi_qUSCRahxe2D2I9kD8iVIs0d4xTbiZMRiQq4';
-var validSignedAuthTokenKate = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGUiLCJleHAiOjMxNjM3NTg5NzgyMTU0ODcsImlhdCI6MTUwMjc0Nzc5NX0.Yfb63XvDt9Wk0wHSDJ3t7Qb1F0oUVUaM5_JKxIE2kyw';
-var invalidSignedAuthToken = 'fakebGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fakec2VybmFtZSI6ImJvYiIsImlhdCI6MTUwMjYyNTIxMywiZXhwIjoxNTAyNzExNjEzfQ.fakemYcOOjM9bzmS4UYRvlWSk_lm3WGHvclmFjLbyOk';
+let server, client;
+let validSignedAuthTokenBob = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJvYiIsImV4cCI6MzE2Mzc1ODk3ODIxNTQ4NywiaWF0IjoxNTAyNzQ3NzQ2fQ.GLf_jqi_qUSCRahxe2D2I9kD8iVIs0d4xTbiZMRiQq4';
+let validSignedAuthTokenKate = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGUiLCJleHAiOjMxNjM3NTg5NzgyMTU0ODcsImlhdCI6MTUwMjc0Nzc5NX0.Yfb63XvDt9Wk0wHSDJ3t7Qb1F0oUVUaM5_JKxIE2kyw';
+let invalidSignedAuthToken = 'fakebGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fakec2VybmFtZSI6ImJvYiIsImlhdCI6MTUwMjYyNTIxMywiZXhwIjoxNTAyNzExNjEzfQ.fakemYcOOjM9bzmS4UYRvlWSk_lm3WGHvclmFjLbyOk';
 
-var TOKEN_EXPIRY_IN_SECONDS = 60 * 60 * 24 * 366 * 5000;
+const TOKEN_EXPIRY_IN_SECONDS = 60 * 60 * 24 * 366 * 5000;
 
-var wait = function (duration) {
+function wait(duration) {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve();
@@ -32,15 +32,15 @@ var wait = function (duration) {
   });
 };
 
-var connectionHandler = function (socket) {
+function connectionHandler(socket) {
   async function handleLogin() {
-    var rpc = await socket.procedure('login').once();
+    let rpc = await socket.procedure('login').once();
     if (allowedUsers[rpc.data.username]) {
       rpc.data.exp = Math.round(Date.now() / 1000) + TOKEN_EXPIRY_IN_SECONDS;
       socket.setAuthToken(rpc.data);
       rpc.end();
     } else {
-      var err = new Error('Failed to login');
+      let err = new Error('Failed to login');
       err.name = 'FailedLoginError';
       rpc.error(err);
     }
@@ -48,7 +48,7 @@ var connectionHandler = function (socket) {
   handleLogin();
 
   async function handleSetAuthKey() {
-    var rpc = await socket.procedure('setAuthKey').once();
+    let rpc = await socket.procedure('setAuthKey').once();
     server.signatureKey = rpc.data;
     server.verificationKey = rpc.data;
     rpc.end();
@@ -82,7 +82,7 @@ describe('Integration tests', function () {
 
     server.addMiddleware(server.MIDDLEWARE_AUTHENTICATE, async function (req) {
       if (req.authToken.username === 'alice') {
-        var err = new Error('Blocked by MIDDLEWARE_AUTHENTICATE');
+        let err = new Error('Blocked by MIDDLEWARE_AUTHENTICATE');
         err.name = 'AuthenticateMiddlewareError';
         throw err;
       }
@@ -98,7 +98,7 @@ describe('Integration tests', function () {
   });
 
   afterEach('Shut down server afterwards', async function () {
-    var cleanupTasks = [];
+    let cleanupTasks = [];
     global.localStorage.removeItem('socketCluster.authToken');
     if (client) {
       if (client.state !== client.CLOSED) {
@@ -152,7 +152,7 @@ describe('Integration tests', function () {
   describe('Errors', function () {
     it('Should be able to emit the error event locally on the socket', async function () {
       client = socketClusterClient.create(clientOptions);
-      var error = null;
+      let error = null;
 
       (async () => {
         for await (let err of client.listener('error')) {
@@ -162,7 +162,7 @@ describe('Integration tests', function () {
 
       (async () => {
         for await (let status of client.listener('connect')) {
-          var error = new Error('Custom error');
+          let error = new Error('Custom error');
           error.name = 'CustomError';
           client.emit('error', error);
         }
@@ -229,8 +229,8 @@ describe('Integration tests', function () {
     it('Should allow switching between users', async function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
-      var authenticateTriggered = false;
-      var authStateChangeTriggered = false;
+      let authenticateTriggered = false;
+      let authStateChangeTriggered = false;
 
       await client.listener('connect').once();
 
@@ -259,7 +259,7 @@ describe('Integration tests', function () {
     });
 
     it('If token engine signing is synchronous, authentication can be captured using the authenticate event', async function () {
-      var port = 8509;
+      let port = 8509;
       server = socketClusterServer.listen(port, {
         authKey: serverOptions.authKey,
         authSignAsync: false
@@ -288,7 +288,7 @@ describe('Integration tests', function () {
     });
 
     it('If token engine signing is asynchronous, authentication can be captured using the authenticate event', async function () {
-      var port = 8510;
+      let port = 8510;
       server = socketClusterServer.listen(port, {
         authKey: serverOptions.authKey,
         authSignAsync: true
@@ -318,7 +318,7 @@ describe('Integration tests', function () {
     });
 
     it('If token verification is synchronous, authentication can be captured using the authenticate event', async function () {
-      var port = 8511;
+      let port = 8511;
       server = socketClusterServer.listen(port, {
         authKey: serverOptions.authKey,
         authVerifyAsync: false
@@ -373,7 +373,7 @@ describe('Integration tests', function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      var caughtError;
+      let caughtError;
 
       (async () => {
         for await (let err of client.listener('error')) {
@@ -383,9 +383,9 @@ describe('Integration tests', function () {
 
       await client.listener('connect').once();
 
-      var oldSaveTokenFunction = client.auth.saveToken;
+      let oldSaveTokenFunction = client.auth.saveToken;
       client.auth.saveToken = function (tokenName, tokenValue, options) {
-        var err = new Error('Failed to save token');
+        let err = new Error('Failed to save token');
         err.name = 'FailedToSaveTokenError';
         return Promise.reject(err);
       };
@@ -433,10 +433,10 @@ describe('Integration tests', function () {
     it('Should go through the correct sequence of authentication state changes when dealing with disconnections; part 1', async function () {
       client = socketClusterClient.create(clientOptions);
 
-      var expectedAuthStateChanges = [
+      let expectedAuthStateChanges = [
         'unauthenticated->authenticated'
       ];
-      var authStateChanges = [];
+      let authStateChanges = [];
 
       (async () => {
         for await (status of client.listener('authStateChange')) {
@@ -477,13 +477,13 @@ describe('Integration tests', function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      var expectedAuthStateChanges = [
+      let expectedAuthStateChanges = [
         'unauthenticated->authenticated',
         'authenticated->unauthenticated',
         'unauthenticated->authenticated',
         'authenticated->unauthenticated'
       ];
-      var authStateChanges = [];
+      let authStateChanges = [];
 
       (async () => {
         for await (status of client.listener('authStateChange')) {
@@ -518,11 +518,11 @@ describe('Integration tests', function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      var expectedAuthStateChanges = [
+      let expectedAuthStateChanges = [
         'unauthenticated->authenticated',
         'authenticated->unauthenticated'
       ];
-      var authStateChanges = [];
+      let authStateChanges = [];
 
       (async () => {
         for await (let status of client.listener('authStateChange')) {
@@ -552,10 +552,10 @@ describe('Integration tests', function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      var expectedAuthStateChanges = [
+      let expectedAuthStateChanges = [
         'unauthenticated->authenticated'
       ];
-      var authStateChanges = [];
+      let authStateChanges = [];
 
       (async () => {
         for await (let status of client.listener('authStateChange')) {
@@ -563,11 +563,11 @@ describe('Integration tests', function () {
         }
       })();
 
-      var expectedAuthTokenChanges = [
+      let expectedAuthTokenChanges = [
         validSignedAuthTokenBob,
         validSignedAuthTokenKate
       ];
-      var authTokenChanges = [];
+      let authTokenChanges = [];
 
       (async () => {
         for await (let packet of client.listener('authenticate')) {
@@ -602,7 +602,7 @@ describe('Integration tests', function () {
     it('Should wait for socket to be authenticated before subscribing to waitForAuth channel', async function () {
       client = socketClusterClient.create(clientOptions);
 
-      var privateChannel = client.subscribe('priv', {waitForAuth: true});
+      let privateChannel = client.subscribe('priv', {waitForAuth: true});
       assert.equal(privateChannel.state, 'pending');
 
       await client.listener('connect').once();
@@ -626,12 +626,12 @@ describe('Integration tests', function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      var expectedAuthStateChanges = [
+      let expectedAuthStateChanges = [
         'unauthenticated->authenticated',
         'authenticated->unauthenticated'
       ];
-      var initialSignedAuthToken;
-      var authStateChanges = [];
+      let initialSignedAuthToken;
+      let authStateChanges = [];
 
       (async () => {
         for await (let status of client.listener('authStateChange')) {
@@ -650,7 +650,7 @@ describe('Integration tests', function () {
         assert.equal(error.name, 'AuthTokenInvalidError');
       })();
 
-      var privateChannel = client.subscribe('priv', {waitForAuth: true});
+      let privateChannel = client.subscribe('priv', {waitForAuth: true});
       assert.equal(privateChannel.state, 'pending');
 
       (async () => {
@@ -682,7 +682,7 @@ describe('Integration tests', function () {
         assert.equal(client.authToken, null);
         assert.equal(oldSignedToken, initialSignedAuthToken);
 
-        var privateChannel2 = client.subscribe('priv2', {waitForAuth: true});
+        let privateChannel2 = client.subscribe('priv2', {waitForAuth: true});
 
         await privateChannel2.listener('subscribe').once();
 
@@ -697,9 +697,9 @@ describe('Integration tests', function () {
 
     it('Should trigger the close event if the socket disconnects in the middle of the handshake phase', async function () {
       client = socketClusterClient.create(clientOptions);
-      var aborted = false;
-      var diconnected = false;
-      var closed = false;
+      let aborted = false;
+      let diconnected = false;
+      let closed = false;
 
       (async () => {
         await client.listener('connectAbort').once();
@@ -727,9 +727,9 @@ describe('Integration tests', function () {
 
     it('Should trigger the close event if the socket disconnects after the handshake phase', async function () {
       client = socketClusterClient.create(clientOptions);
-      var aborted = false;
-      var diconnected = false;
-      var closed = false;
+      let aborted = false;
+      let diconnected = false;
+      let closed = false;
 
       (async () => {
         await client.listener('connectAbort').once();
@@ -764,8 +764,8 @@ describe('Integration tests', function () {
     it('Should not throw error on socket if ackTimeout elapses before response to event is sent back', async function () {
       client = socketClusterClient.create(clientOptions);
 
-      var caughtError;
-      var clientError;
+      let caughtError;
+      let clientError;
 
       (async () => {
         for await (let err of client.listener('error')) {
@@ -773,7 +773,7 @@ describe('Integration tests', function () {
         }
       })();
 
-      var responseError;
+      let responseError;
 
       for await (let packet of client.listener('connect')) {
         try {
@@ -801,8 +801,8 @@ describe('Integration tests', function () {
 
       await client.listener('connect').once();
 
-      var disconnectCode;
-      var disconnectReason;
+      let disconnectCode;
+      let disconnectReason;
 
       (async () => {
         for await (let packet of client.listener('disconnect')) {
@@ -823,8 +823,8 @@ describe('Integration tests', function () {
 
       await client.listener('connect').once();
 
-      var disconnectCode;
-      var disconnectReason;
+      let disconnectCode;
+      let disconnectReason;
 
       (async () => {
         let packet = await client.listener('disconnect').once();
@@ -844,9 +844,9 @@ describe('Integration tests', function () {
   describe('Order of events', function () {
     it('Should trigger unsubscribe event on channel before disconnect event', async function () {
       client = socketClusterClient.create(clientOptions);
-      var hasUnsubscribed = false;
+      let hasUnsubscribed = false;
 
-      var fooChannel = client.subscribe('foo');
+      let fooChannel = client.subscribe('foo');
 
       (async () => {
         for await (let packet of fooChannel.listener('subscribe')) {
@@ -867,9 +867,9 @@ describe('Integration tests', function () {
 
     it('Should not invoke subscribeFail event if connection is aborted', async function () {
       client = socketClusterClient.create(clientOptions);
-      var hasSubscribeFailed = false;
-      var gotBadConnectionError = false;
-      var wasConnected = false;
+      let hasSubscribeFailed = false;
+      let gotBadConnectionError = false;
+      let wasConnected = false;
 
       (async () => {
         for await (let packet of client.listener('connect')) {
@@ -884,7 +884,7 @@ describe('Integration tests', function () {
             }
           })();
 
-          var fooChannel = client.subscribe('foo');
+          let fooChannel = client.subscribe('foo');
           (async () => {
             for await (let packet of fooChannel.listener('subscribeFail')) {
               hasSubscribeFailed = true;
@@ -907,7 +907,7 @@ describe('Integration tests', function () {
 
     it('Should resolve invoke Promise with BadConnectionError after triggering the disconnect event', async function () {
       client = socketClusterClient.create(clientOptions);
-      var messageList = [];
+      let messageList = [];
 
       (async () => {
         try {
@@ -940,7 +940,7 @@ describe('Integration tests', function () {
     });
 
     it('Should reconnect if transmit is called on a disconnected socket', async function () {
-      var fooReceiverTriggered = false;
+      let fooReceiverTriggered = false;
 
       (async () => {
         for await (let socket of server.listener('connection')) {
@@ -954,7 +954,7 @@ describe('Integration tests', function () {
 
       client = socketClusterClient.create(clientOptions);
 
-      var clientError;
+      let clientError;
 
       (async () => {
         for await (let err of client.listener('error')) {
@@ -962,7 +962,7 @@ describe('Integration tests', function () {
         }
       })();
 
-      var eventList = [];
+      let eventList = [];
 
       (async () => {
         for await (let packet of client.listener('connecting')) {
@@ -1002,7 +1002,7 @@ describe('Integration tests', function () {
 
       await wait(1000);
 
-      var expectedEventList = ['connect', 'disconnect', 'close', 'connecting', 'connect'];
+      let expectedEventList = ['connect', 'disconnect', 'close', 'connecting', 'connect'];
       assert.equal(JSON.stringify(eventList), JSON.stringify(expectedEventList));
       assert.equal(fooReceiverTriggered, true);
     });
@@ -1010,9 +1010,9 @@ describe('Integration tests', function () {
     it('Should correctly handle multiple successive connect and disconnect calls', async function () {
       client = socketClusterClient.create(clientOptions);
 
-      var eventList = [];
+      let eventList = [];
 
-      var clientError;
+      let clientError;
       (async () => {
         for await (let err of client.listener('error')) {
           clientError = err;
@@ -1078,7 +1078,7 @@ describe('Integration tests', function () {
 
       await wait(200);
 
-      var expectedEventList = [
+      let expectedEventList = [
         {
           event: 'connectAbort',
           code: 1000,
@@ -1138,8 +1138,8 @@ describe('Integration tests', function () {
         }
       })();
 
-      var disconnectCode = null;
-      var clientError = null;
+      let disconnectCode = null;
+      let clientError = null;
 
       (async () => {
         for await (let err of client.listener('error')) {
@@ -1167,7 +1167,7 @@ describe('Integration tests', function () {
 
       assert.equal(client.pingTimeout, 500);
 
-      var clientError = null;
+      let clientError = null;
       (async () => {
         for await (let err of client.listener('error')) {
           clientError = err;
@@ -1182,9 +1182,9 @@ describe('Integration tests', function () {
   describe('Utilities', function () {
     it('Can encode a string to base64 and then decode it back to utf8', function (done) {
       client = socketClusterClient.create(clientOptions);
-      var encodedString = client.encodeBase64('This is a string');
+      let encodedString = client.encodeBase64('This is a string');
       assert.equal(encodedString, 'VGhpcyBpcyBhIHN0cmluZw==');
-      var decodedString = client.decodeBase64(encodedString);
+      let decodedString = client.decodeBase64(encodedString);
       assert.equal(decodedString, 'This is a string');
       done();
     });
