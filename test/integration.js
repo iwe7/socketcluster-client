@@ -612,9 +612,7 @@ describe('Integration tests', function () {
       await client.listener('subscribe').once();
       assert.equal(privateChannel.state, 'subscribed');
 
-      let disconnectPromise = client.listener('disconnect').once();
       client.disconnect();
-      await disconnectPromise;
       assert.equal(privateChannel.state, 'pending');
 
       client.authenticate(validSignedAuthTokenBob);
