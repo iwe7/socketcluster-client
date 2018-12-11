@@ -677,7 +677,7 @@ describe('Integration tests', function () {
         // The subscription already went through so it should still be subscribed.
         let oldSignedToken = await client.listener('deauthenticate').once();
         // The subscription already went through so it should still be subscribed.
-        assert.equal(privateChannel.state, 'subscribed'); // TODO 2222233333 TODO 4
+        assert.equal(privateChannel.state, 'subscribed');
         assert.equal(client.authState, 'unauthenticated');
         assert.equal(client.authToken, null);
         assert.equal(oldSignedToken, initialSignedAuthToken);
@@ -775,23 +775,20 @@ describe('Integration tests', function () {
 
       var responseError;
 
-      (async () => {
-        for await (let packet of client.listener('connect')) {
-          try {
-            await client.invoke('performTask', 123);
-          } catch (err) {
-            responseError = err;
-          }
-          await wait(250);
-          try {
-            client.disconnect();
-          } catch (e) {
-            caughtError = e;
-          }
+      for await (let packet of client.listener('connect')) {
+        try {
+          await client.invoke('performTask', 123);
+        } catch (err) {
+          responseError = err;
         }
-      })();
-
-      await wait(300);
+        await wait(250);
+        try {
+          client.disconnect();
+        } catch (err) {
+          caughtError = err;
+        }
+        break;
+      }
 
       assert.notEqual(responseError, null);
       assert.equal(caughtError, null);
@@ -872,9 +869,11 @@ describe('Integration tests', function () {
       client = socketClusterClient.create(clientOptions);
       var hasSubscribeFailed = false;
       var gotBadConnectionError = false;
+      var wasConnected = false;
 
       (async () => {
         for await (let packet of client.listener('connect')) {
+          wasConnected = true;
           (async () => {
             try {
               await client.invoke('someEvent', 123);
@@ -892,13 +891,16 @@ describe('Integration tests', function () {
             }
           })();
 
-          await wait(0);
-          client.disconnect();
+          (async () => {
+            await wait(0);
+            client.disconnect();
+          })();
         }
       })();
 
       await client.listener('close').once();
       await wait(100);
+      assert.equal(wasConnected, true);
       assert.equal(gotBadConnectionError, true);
       assert.equal(hasSubscribeFailed, false);
     });
@@ -937,195 +939,243 @@ describe('Integration tests', function () {
       assert.equal(messageList[1].error.name, 'BadConnectionError');
     });
 
-    it('Should reconnect if transmit is called on a disconnected socket', function (done) {
-      var fooEventTriggered = false;
-      server.on('connection', function (socket) {
-        socket.on('foo', function () {
-          fooEventTriggered = true;
-        });
-      });
+    it('Should reconnect if transmit is called on a disconnected socket', async function () {
+      var fooReceiverTriggered = false;
+
+      (async () => {
+        for await (let socket of server.listener('connection')) {
+          (async () => {
+            for await (let packet of socket.receiver('foo')) {
+              fooReceiverTriggered = true;
+            }
+          })();
+        }
+      })();
 
       client = socketClusterClient.create(clientOptions);
 
       var clientError;
-      client.on('error', function (err) {
-        clientError = err;
-      });
+
+      (async () => {
+        for await (let err of client.listener('error')) {
+          clientError = err;
+        }
+      })();
 
       var eventList = [];
 
-      client.on('connecting', function () {
-        eventList.push('connecting');
-      });
-      client.on('connect', function () {
-        eventList.push('connect');
-      });
-      client.on('disconnect', function () {
-        eventList.push('disconnect');
-      });
-      client.on('close', function () {
-        eventList.push('close');
-      });
-      client.on('connectAbort', function () {
-        eventList.push('connectAbort');
-      });
+      (async () => {
+        for await (let packet of client.listener('connecting')) {
+          eventList.push('connecting');
+        }
+      })();
 
-      client.once('connect', function () {
+      (async () => {
+        for await (let packet of client.listener('connect')) {
+          eventList.push('connect');
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('disconnect')) {
+          eventList.push('disconnect');
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('close')) {
+          eventList.push('close');
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('connectAbort')) {
+          eventList.push('connectAbort');
+        }
+      })();
+
+      (async () => {
+        await client.listener('connect').once();
         client.disconnect();
         client.transmit('foo', 123);
-      });
+      })();
 
-      setTimeout(function () {
-        var expectedEventList = ['connect', 'disconnect', 'close', 'connecting', 'connect'];
-        assert.equal(JSON.stringify(eventList), JSON.stringify(expectedEventList));
-        assert.equal(fooEventTriggered, true);
-        done();
-      }, 1000);
+      await wait(1000);
+
+      var expectedEventList = ['connect', 'disconnect', 'close', 'connecting', 'connect'];
+      assert.equal(JSON.stringify(eventList), JSON.stringify(expectedEventList));
+      assert.equal(fooReceiverTriggered, true);
     });
 
-    it('Should correctly handle multiple successive connect and disconnect calls', function (done) {
+    it('Should correctly handle multiple successive connect and disconnect calls', async function () {
       client = socketClusterClient.create(clientOptions);
 
       var eventList = [];
 
       var clientError;
-      client.on('error', function (err) {
-        clientError = err;
-      });
-      client.on('connecting', function () {
-        eventList.push({
-          event: 'connecting'
-        });
-      });
-      client.on('connect', function () {
-        eventList.push({
-          event: 'connect'
-        });
-      });
-      client.on('connectAbort', function (code, reason) {
-        eventList.push({
-          event: 'connectAbort',
-          code: code,
-          reason: reason
-        });
-      });
-      client.on('disconnect', function (code, reason) {
-        eventList.push({
-          event: 'disconnect',
-          code: code,
-          reason: reason
-        });
-      });
-      client.on('close', function (code, reason) {
-        eventList.push({
-          event: 'close',
-          code: code,
-          reason: reason
-        });
-      });
+      (async () => {
+        for await (let err of client.listener('error')) {
+          clientError = err;
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('connecting')) {
+          eventList.push({
+            event: 'connecting'
+          });
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('connect')) {
+          eventList.push({
+            event: 'connect'
+          });
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('connectAbort')) {
+          eventList.push({
+            event: 'connectAbort',
+            code: packet.code,
+            reason: packet.data // TODO 2: packet.reason??
+          });
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('disconnect')) {
+          eventList.push({
+            event: 'disconnect',
+            code: packet.code,
+            reason: packet.data // TODO 2: packet.reason??
+          });
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('close')) {
+          eventList.push({
+            event: 'close',
+            code: packet.code,
+            reason: packet.data // TODO 2: packet.reason??
+          });
+        }
+      })();
 
       client.disconnect(1000, 'One');
       client.connect();
       client.disconnect(4444, 'Two');
-      client.once('connect', function () {
+
+      (async () => {
+        await client.listener('connect').once();
         client.disconnect(4455, 'Three');
-      });
+      })();
+
       client.connect();
 
-      setTimeout(function () {
-        var expectedEventList = [
-          {
-            event: 'connectAbort',
-            code: 1000,
-            reason: 'One'
-          },
-          {
-            event: 'close',
-            code: 1000,
-            reason: 'One'
-          },
-          {
-            event: 'connecting'
-          },
-          {
-            event: 'connectAbort',
-            code: 4444,
-            reason: 'Two'
-          },
-          {
-            event: 'close',
-            code: 4444,
-            reason: 'Two'
-          },
-          {
-            event: 'connecting'
-          },
-          {
-            event: 'connect'
-          },
-          {
-            event: 'disconnect',
-            code: 4455,
-            reason: 'Three'
-          },
-          {
-            event: 'close',
-            code: 4455,
-            reason: 'Three'
-          },
-        ];
-        assert.equal(JSON.stringify(eventList), JSON.stringify(expectedEventList));
-        done();
-      }, 200);
+      await wait(200);
+
+      var expectedEventList = [
+        {
+          event: 'connectAbort',
+          code: 1000,
+          reason: 'One'
+        },
+        {
+          event: 'close',
+          code: 1000,
+          reason: 'One'
+        },
+        {
+          event: 'connecting'
+        },
+        {
+          event: 'connectAbort',
+          code: 4444,
+          reason: 'Two'
+        },
+        {
+          event: 'close',
+          code: 4444,
+          reason: 'Two'
+        },
+        {
+          event: 'connecting'
+        },
+        {
+          event: 'connect'
+        },
+        {
+          event: 'disconnect',
+          code: 4455,
+          reason: 'Three'
+        },
+        {
+          event: 'close',
+          code: 4455,
+          reason: 'Three'
+        },
+      ];
+      assert.equal(JSON.stringify(eventList), JSON.stringify(expectedEventList));
     });
   });
 
   describe('Ping/pong', function () {
-    it('Should disconnect if ping is not received before timeout', function (done) {
-      clientOptions.ackTimeout = 500;
+    it('Should disconnect if ping is not received before timeout', async function () {
+      clientOptions.connectTimeout = 500;
       client = socketClusterClient.create(clientOptions);
 
       assert.equal(client.pingTimeout, 500);
 
-      client.on('connect', function () {
-        assert.equal(client.transport.pingTimeout, server.options.pingTimeout);
-        // Hack to make the client ping independent from the server ping.
-        client.transport.pingTimeout = 500;
-      });
+      (async () => {
+        for await (let packet of client.listener('connect')) {
+          assert.equal(client.transport.pingTimeout, server.options.pingTimeout);
+          // Hack to make the client ping independent from the server ping.
+          client.transport.pingTimeout = 500;
+        }
+      })();
 
       var disconnectCode = null;
       var clientError = null;
-      client.on('error', function (err) {
-        clientError = err;
-      });
-      client.on('disconnect', function (code) {
-        disconnectCode = code;
-      });
 
-      setTimeout(function () {
-        assert.equal(disconnectCode, 4000);
-        assert.notEqual(clientError, null);
-        assert.equal(clientError.name, 'SocketProtocolError');
-        done();
-      }, 1000);
+      (async () => {
+        for await (let err of client.listener('error')) {
+          clientError = err;
+        }
+      })();
+
+      (async () => {
+        for await (let packet of client.listener('disconnect')) {
+          disconnectCode = packet.code;
+        }
+      })();
+
+      await wait(1000);
+
+      assert.equal(disconnectCode, 4000);
+      assert.notEqual(clientError, null);
+      assert.equal(clientError.name, 'SocketProtocolError');
     });
 
-    it('Should not disconnect if ping is not received before timeout when pingTimeoutDisabled is true', function (done) {
-      clientOptions.ackTimeout = 500;
+    it('Should not disconnect if ping is not received before timeout when pingTimeoutDisabled is true', async function () {
+      clientOptions.connectTimeout = 500;
       clientOptions.pingTimeoutDisabled = true;
       client = socketClusterClient.create(clientOptions);
 
       assert.equal(client.pingTimeout, 500);
 
       var clientError = null;
-      client.on('error', function (err) {
-        clientError = err;
-      });
+      (async () => {
+        for await (let err of client.listener('error')) {
+          clientError = err;
+        }
+      })();
 
-      setTimeout(function () {
-        assert.equal(clientError, null);
-        done();
-      }, 1000);
+      await wait(1000);
+      assert.equal(clientError, null);
     });
   });
 
