@@ -830,7 +830,6 @@ describe('Integration tests', function () {
         disconnectReason = packet.data;
       })();
 
-
       client.reconnect(1000, 'About to reconnect');
       await client.listener('connect').once();
 
