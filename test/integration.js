@@ -74,7 +74,7 @@ describe('Integration tests', function () {
 
     server = socketClusterServer.listen(portNumber, serverOptions);
     async function handleServerConnection() {
-      for await (let socket of server.listener('connection')) {
+      for await (let {socket} of server.listener('connection')) {
         connectionHandler(socket);
       }
     }
@@ -266,7 +266,7 @@ describe('Integration tests', function () {
       });
 
       (async () => {
-        let socket = await server.listener('connection').once();
+        let {socket} = await server.listener('connection').once();
         connectionHandler(socket);
       })();
 
@@ -295,7 +295,7 @@ describe('Integration tests', function () {
       });
 
       (async () => {
-        let socket = await server.listener('connection').once();
+        let {socket} = await server.listener('connection').once();
         connectionHandler(socket);
       })();
 
@@ -325,7 +325,7 @@ describe('Integration tests', function () {
       });
 
       (async () => {
-        let socket = await server.listener('connection').once();
+        let {socket} = await server.listener('connection').once();
         connectionHandler(socket);
       })();
 
@@ -940,7 +940,7 @@ describe('Integration tests', function () {
       let fooReceiverTriggered = false;
 
       (async () => {
-        for await (let socket of server.listener('connection')) {
+        for await (let {socket} of server.listener('connection')) {
           (async () => {
             for await (let packet of socket.receiver('foo')) {
               fooReceiverTriggered = true;
