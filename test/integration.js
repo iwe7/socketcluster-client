@@ -178,28 +178,28 @@ describe('Integration tests', function () {
   describe('Authentication', function () {
     it('Should not send back error if JWT is not provided in handshake', async function () {
       client = socketClusterClient.create(clientOptions);
-      let packet = await client.listener('connect').once();
-      assert.equal(packet.authError === undefined, true);
+      let event = await client.listener('connect').once();
+      assert.equal(event.authError === undefined, true);
     });
 
     it('Should be authenticated on connect if previous JWT token is present', async function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      let packet = await client.listener('connect').once();
+      let event = await client.listener('connect').once();
       assert.equal(client.authState, 'authenticated');
-      assert.equal(packet.isAuthenticated, true);
-      assert.equal(packet.authError === undefined, true);
+      assert.equal(event.isAuthenticated, true);
+      assert.equal(event.authError === undefined, true);
     });
 
     it('Should send back error if JWT is invalid during handshake', async function () {
       global.localStorage.setItem('socketCluster.authToken', validSignedAuthTokenBob);
       client = socketClusterClient.create(clientOptions);
 
-      let packet = await client.listener('connect').once();
-      assert.notEqual(packet, null);
-      assert.equal(packet.isAuthenticated, true);
-      assert.equal(packet.authError, null);
+      let event = await client.listener('connect').once();
+      assert.notEqual(event, null);
+      assert.equal(event.isAuthenticated, true);
+      assert.equal(event.authError, null);
 
       assert.notEqual(client.signedAuthToken, null);
       assert.notEqual(client.authToken, null);
@@ -210,11 +210,11 @@ describe('Integration tests', function () {
       client.disconnect();
       client.connect();
 
-      packet = await client.listener('connect').once();
+      event = await client.listener('connect').once();
 
-      assert.equal(packet.isAuthenticated, false);
-      assert.notEqual(packet.authError, null);
-      assert.equal(packet.authError.name, 'AuthTokenInvalidError');
+      assert.equal(event.isAuthenticated, false);
+      assert.notEqual(event.authError, null);
+      assert.equal(event.authError.name, 'AuthTokenInvalidError');
 
       // When authentication fails, the auth token properties on the client
       // socket should be set to null; that way it's not going to keep
@@ -348,9 +348,9 @@ describe('Integration tests', function () {
           await client.listener('authenticate').once();
           await client.listener('disconnect').once();
           client.connect();
-          let packet = await client.listener('connect').once();
+          let event = await client.listener('connect').once();
 
-          assert.equal(packet.isAuthenticated, true);
+          assert.equal(event.isAuthenticated, true);
           assert.notEqual(client.authToken, null);
           assert.equal(client.authToken.username, 'bob');
         })()
@@ -573,13 +573,13 @@ describe('Integration tests', function () {
       let authTokenChanges = [];
 
       (async () => {
-        for await (let packet of client.listener('authenticate')) {
+        for await (let event of client.listener('authenticate')) {
           authTokenChanges.push(client.signedAuthToken);
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('deauthenticate')) {
+        for await (let event of client.listener('deauthenticate')) {
           authTokenChanges.push(client.signedAuthToken);
         }
       })();
@@ -655,9 +655,9 @@ describe('Integration tests', function () {
       assert.equal(privateChannel.state, 'pending');
 
       (async () => {
-        let packet = await client.listener('connect').once();
+        let event = await client.listener('connect').once();
         initialSignedAuthToken = client.signedAuthToken;
-        assert.equal(packet.isAuthenticated, true);
+        assert.equal(event.isAuthenticated, true);
         assert.equal(privateChannel.state, 'pending');
 
         await Promise.race([
@@ -751,7 +751,7 @@ describe('Integration tests', function () {
       })();
 
       (async () => {
-        for await (let packet of client.listener('connect')) {
+        for await (let event of client.listener('connect')) {
           client.disconnect();
         }
       })();
@@ -779,7 +779,7 @@ describe('Integration tests', function () {
 
       let responseError;
 
-      for await (let packet of client.listener('connect')) {
+      for await (let event of client.listener('connect')) {
         try {
           await client.invoke('performTask', 123);
         } catch (err) {
@@ -809,9 +809,9 @@ describe('Integration tests', function () {
       let disconnectReason;
 
       (async () => {
-        for await (let packet of client.listener('disconnect')) {
-          disconnectCode = packet.code;
-          disconnectReason = packet.reason;
+        for await (let event of client.listener('disconnect')) {
+          disconnectCode = event.code;
+          disconnectReason = event.reason;
         }
       })();
 
@@ -831,9 +831,9 @@ describe('Integration tests', function () {
       let disconnectReason;
 
       (async () => {
-        let packet = await client.listener('disconnect').once();
-        disconnectCode = packet.code;
-        disconnectReason = packet.reason;
+        let event = await client.listener('disconnect').once();
+        disconnectCode = event.code;
+        disconnectReason = event.reason;
       })();
 
       client.reconnect(1000, 'About to reconnect');
@@ -852,14 +852,14 @@ describe('Integration tests', function () {
       let fooChannel = client.subscribe('foo');
 
       (async () => {
-        for await (let packet of fooChannel.listener('subscribe')) {
+        for await (let event of fooChannel.listener('subscribe')) {
           await wait(100);
           client.disconnect();
         }
       })();
 
       (async () => {
-        for await (let packet of fooChannel.listener('unsubscribe')) {
+        for await (let event of fooChannel.listener('unsubscribe')) {
           hasUnsubscribed = true;
         }
       })();
@@ -875,7 +875,7 @@ describe('Integration tests', function () {
       let wasConnected = false;
 
       (async () => {
-        for await (let packet of client.listener('connect')) {
+        for await (let event of client.listener('connect')) {
           wasConnected = true;
           (async () => {
             try {
@@ -889,7 +889,7 @@ describe('Integration tests', function () {
 
           let fooChannel = client.subscribe('foo');
           (async () => {
-            for await (let packet of fooChannel.listener('subscribeFail')) {
+            for await (let event of fooChannel.listener('subscribeFail')) {
               hasSubscribeFailed = true;
             }
           })();
@@ -924,11 +924,11 @@ describe('Integration tests', function () {
       })();
 
       (async () => {
-        for await (let packet of client.listener('disconnect')) {
+        for await (let event of client.listener('disconnect')) {
           messageList.push({
             type: 'disconnect',
-            code: packet.code,
-            reason: packet.reason
+            code: event.code,
+            reason: event.reason
           });
         }
       })();
@@ -948,7 +948,7 @@ describe('Integration tests', function () {
       (async () => {
         for await (let {socket} of server.listener('connection')) {
           (async () => {
-            for await (let packet of socket.receiver('foo')) {
+            for await (let data of socket.receiver('foo')) {
               fooReceiverTriggered = true;
             }
           })();
@@ -968,31 +968,31 @@ describe('Integration tests', function () {
       let eventList = [];
 
       (async () => {
-        for await (let packet of client.listener('connecting')) {
+        for await (let event of client.listener('connecting')) {
           eventList.push('connecting');
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('connect')) {
+        for await (let event of client.listener('connect')) {
           eventList.push('connect');
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('disconnect')) {
+        for await (let event of client.listener('disconnect')) {
           eventList.push('disconnect');
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('close')) {
+        for await (let event of client.listener('close')) {
           eventList.push('close');
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('connectAbort')) {
+        for await (let event of client.listener('connectAbort')) {
           eventList.push('connectAbort');
         }
       })();
@@ -1023,7 +1023,7 @@ describe('Integration tests', function () {
       })();
 
       (async () => {
-        for await (let packet of client.listener('connecting')) {
+        for await (let event of client.listener('connecting')) {
           eventList.push({
             event: 'connecting'
           });
@@ -1031,7 +1031,7 @@ describe('Integration tests', function () {
       })();
 
       (async () => {
-        for await (let packet of client.listener('connect')) {
+        for await (let event of client.listener('connect')) {
           eventList.push({
             event: 'connect'
           });
@@ -1039,31 +1039,31 @@ describe('Integration tests', function () {
       })();
 
       (async () => {
-        for await (let packet of client.listener('connectAbort')) {
+        for await (let event of client.listener('connectAbort')) {
           eventList.push({
             event: 'connectAbort',
-            code: packet.code,
-            reason: packet.reason
+            code: event.code,
+            reason: event.reason
           });
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('disconnect')) {
+        for await (let event of client.listener('disconnect')) {
           eventList.push({
             event: 'disconnect',
-            code: packet.code,
-            reason: packet.reason
+            code: event.code,
+            reason: event.reason
           });
         }
       })();
 
       (async () => {
-        for await (let packet of client.listener('close')) {
+        for await (let event of client.listener('close')) {
           eventList.push({
             event: 'close',
-            code: packet.code,
-            reason: packet.reason
+            code: event.code,
+            reason: event.reason
           });
         }
       })();
@@ -1134,7 +1134,7 @@ describe('Integration tests', function () {
       assert.equal(client.pingTimeout, 500);
 
       (async () => {
-        for await (let packet of client.listener('connect')) {
+        for await (let event of client.listener('connect')) {
           assert.equal(client.transport.pingTimeout, server.options.pingTimeout);
           // Hack to make the client ping independent from the server ping.
           client.transport.pingTimeout = 500;
@@ -1151,8 +1151,8 @@ describe('Integration tests', function () {
       })();
 
       (async () => {
-        for await (let packet of client.listener('disconnect')) {
-          disconnectCode = packet.code;
+        for await (let event of client.listener('disconnect')) {
+          disconnectCode = event.code;
         }
       })();
 
