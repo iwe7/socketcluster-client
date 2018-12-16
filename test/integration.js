@@ -827,7 +827,7 @@ describe('Integration tests', function () {
       (async () => {
         let packet = await client.listener('disconnect').once();
         disconnectCode = packet.code;
-        disconnectReason = packet.data;
+        disconnectReason = packet.reason;
       })();
 
       client.reconnect(1000, 'About to reconnect');
@@ -922,7 +922,7 @@ describe('Integration tests', function () {
           messageList.push({
             type: 'disconnect',
             code: packet.code,
-            reason: packet.data
+            reason: packet.reason
           });
         }
       })();
@@ -1037,7 +1037,7 @@ describe('Integration tests', function () {
           eventList.push({
             event: 'connectAbort',
             code: packet.code,
-            reason: packet.data // TODO 2: packet.reason??
+            reason: packet.reason
           });
         }
       })();
@@ -1047,7 +1047,7 @@ describe('Integration tests', function () {
           eventList.push({
             event: 'disconnect',
             code: packet.code,
-            reason: packet.data // TODO 2: packet.reason??
+            reason: packet.reason
           });
         }
       })();
@@ -1057,7 +1057,7 @@ describe('Integration tests', function () {
           eventList.push({
             event: 'close',
             code: packet.code,
-            reason: packet.data // TODO 2: packet.reason??
+            reason: packet.reason
           });
         }
       })();
