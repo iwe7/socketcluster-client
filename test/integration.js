@@ -152,11 +152,11 @@ describe('Integration tests', function () {
   describe('Errors', function () {
     it('Should be able to emit the error event locally on the socket', async function () {
       client = socketClusterClient.create(clientOptions);
-      let error = null;
+      let err = null;
 
       (async () => {
-        for await (let err of client.listener('error')) {
-          error = err;
+        for await (let {error} of client.listener('error')) {
+          err = error;
         }
       })();
 
@@ -164,14 +164,14 @@ describe('Integration tests', function () {
         for await (let status of client.listener('connect')) {
           let error = new Error('Custom error');
           error.name = 'CustomError';
-          client.emit('error', error);
+          client.emit('error', {error});
         }
       })();
 
       await wait(100);
 
-      assert.notEqual(error, null);
-      assert.equal(error.name, 'CustomError');
+      assert.notEqual(err, null);
+      assert.equal(err.name, 'CustomError');
     });
   });
 
@@ -376,8 +376,8 @@ describe('Integration tests', function () {
       let caughtError;
 
       (async () => {
-        for await (let err of client.listener('error')) {
-          caughtError = err;
+        for await (let {error} of client.listener('error')) {
+          caughtError = error;
         }
       })();
 
@@ -766,8 +766,8 @@ describe('Integration tests', function () {
       let clientError;
 
       (async () => {
-        for await (let err of client.listener('error')) {
-          clientError = err;
+        for await (let {error} of client.listener('error')) {
+          clientError = error;
         }
       })();
 
@@ -954,8 +954,8 @@ describe('Integration tests', function () {
       let clientError;
 
       (async () => {
-        for await (let err of client.listener('error')) {
-          clientError = err;
+        for await (let {error} of client.listener('error')) {
+          clientError = error;
         }
       })();
 
@@ -1011,8 +1011,8 @@ describe('Integration tests', function () {
 
       let clientError;
       (async () => {
-        for await (let err of client.listener('error')) {
-          clientError = err;
+        for await (let {error} of client.listener('error')) {
+          clientError = error;
         }
       })();
 
@@ -1139,8 +1139,8 @@ describe('Integration tests', function () {
       let clientError = null;
 
       (async () => {
-        for await (let err of client.listener('error')) {
-          clientError = err;
+        for await (let {error} of client.listener('error')) {
+          clientError = error;
         }
       })();
 
@@ -1166,8 +1166,8 @@ describe('Integration tests', function () {
 
       let clientError = null;
       (async () => {
-        for await (let err of client.listener('error')) {
-          clientError = err;
+        for await (let {error} of client.listener('error')) {
+          clientError = error;
         }
       })();
 
