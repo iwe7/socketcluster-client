@@ -179,7 +179,7 @@ describe('Integration tests', function () {
     it('Should not send back error if JWT is not provided in handshake', async function () {
       client = socketClusterClient.create(clientOptions);
       let packet = await client.listener('connect').once();
-      assert.equal(packet.status.authError === undefined, true);
+      assert.equal(packet.authError === undefined, true);
     });
 
     it('Should be authenticated on connect if previous JWT token is present', async function () {
@@ -188,8 +188,8 @@ describe('Integration tests', function () {
 
       let packet = await client.listener('connect').once();
       assert.equal(client.authState, 'authenticated');
-      assert.equal(packet.status.isAuthenticated, true);
-      assert.equal(packet.status.authError === undefined, true);
+      assert.equal(packet.isAuthenticated, true);
+      assert.equal(packet.authError === undefined, true);
     });
 
     it('Should send back error if JWT is invalid during handshake', async function () {
@@ -197,9 +197,9 @@ describe('Integration tests', function () {
       client = socketClusterClient.create(clientOptions);
 
       let packet = await client.listener('connect').once();
-      assert.notEqual(packet.status, null);
-      assert.equal(packet.status.isAuthenticated, true);
-      assert.equal(packet.status.authError, null);
+      assert.notEqual(packet, null);
+      assert.equal(packet.isAuthenticated, true);
+      assert.equal(packet.authError, null);
 
       assert.notEqual(client.signedAuthToken, null);
       assert.notEqual(client.authToken, null);
@@ -212,9 +212,9 @@ describe('Integration tests', function () {
 
       packet = await client.listener('connect').once();
 
-      assert.equal(packet.status.isAuthenticated, false);
-      assert.notEqual(packet.status.authError, null);
-      assert.equal(packet.status.authError.name, 'AuthTokenInvalidError');
+      assert.equal(packet.isAuthenticated, false);
+      assert.notEqual(packet.authError, null);
+      assert.equal(packet.authError.name, 'AuthTokenInvalidError');
 
       // When authentication fails, the auth token properties on the client
       // socket should be set to null; that way it's not going to keep
@@ -350,7 +350,7 @@ describe('Integration tests', function () {
           client.connect();
           let packet = await client.listener('connect').once();
 
-          assert.equal(packet.status.isAuthenticated, true);
+          assert.equal(packet.isAuthenticated, true);
           assert.notEqual(client.authToken, null);
           assert.equal(client.authToken.username, 'bob');
         })()
@@ -440,7 +440,7 @@ describe('Integration tests', function () {
 
       (async () => {
         for await (status of client.listener('authStateChange')) {
-          authStateChanges.push(status.oldState + '->' + status.newState);
+          authStateChanges.push(status.oldAuthState + '->' + status.newAuthState);
         }
       })();
 
@@ -457,7 +457,10 @@ describe('Integration tests', function () {
 
       assert.equal(client.authState, 'unauthenticated');
 
-      let newSignedToken = await client.listener('authenticate').once();
+      let {signedAuthToken, authToken} = await client.listener('authenticate').once();
+
+      assert.notEqual(signedAuthToken, null);
+      assert.notEqual(authToken, null);
 
       assert.equal(client.authState, 'authenticated');
 
@@ -466,7 +469,7 @@ describe('Integration tests', function () {
       // In case of disconnection, the socket maintains the last known auth state.
       assert.equal(client.authState, 'authenticated');
 
-      await client.authenticate(newSignedToken);
+      await client.authenticate(signedAuthToken);
 
       assert.equal(client.authState, 'authenticated');
       assert.equal(JSON.stringify(authStateChanges), JSON.stringify(expectedAuthStateChanges));
@@ -487,7 +490,7 @@ describe('Integration tests', function () {
 
       (async () => {
         for await (status of client.listener('authStateChange')) {
-          authStateChanges.push(status.oldState + '->' + status.newState);
+          authStateChanges.push(status.oldAuthState + '->' + status.newAuthState);
         }
       })();
 
@@ -526,7 +529,7 @@ describe('Integration tests', function () {
 
       (async () => {
         for await (let status of client.listener('authStateChange')) {
-          authStateChanges.push(status.oldState + '->' + status.newState);
+          authStateChanges.push(status.oldAuthState + '->' + status.newAuthState);
         }
       })();
 
@@ -559,7 +562,7 @@ describe('Integration tests', function () {
 
       (async () => {
         for await (let status of client.listener('authStateChange')) {
-          authStateChanges.push(status.oldState + '->' + status.newState);
+          authStateChanges.push(status.oldAuthState + '->' + status.newAuthState);
         }
       })();
 
@@ -633,7 +636,7 @@ describe('Integration tests', function () {
 
       (async () => {
         for await (let status of client.listener('authStateChange')) {
-          authStateChanges.push(status.oldState + '->' + status.newState);
+          authStateChanges.push(status.oldAuthState + '->' + status.newAuthState);
         }
       })();
 
@@ -654,7 +657,7 @@ describe('Integration tests', function () {
       (async () => {
         let packet = await client.listener('connect').once();
         initialSignedAuthToken = client.signedAuthToken;
-        assert.equal(packet.status.isAuthenticated, true);
+        assert.equal(packet.isAuthenticated, true);
         assert.equal(privateChannel.state, 'pending');
 
         await Promise.race([
@@ -673,12 +676,15 @@ describe('Integration tests', function () {
 
       (async () => {
         // The subscription already went through so it should still be subscribed.
-        let oldSignedToken = await client.listener('deauthenticate').once();
+        let {oldSignedAuthToken, oldAuthToken} = await client.listener('deauthenticate').once();
         // The subscription already went through so it should still be subscribed.
         assert.equal(privateChannel.state, 'subscribed');
         assert.equal(client.authState, 'unauthenticated');
         assert.equal(client.authToken, null);
-        assert.equal(oldSignedToken, initialSignedAuthToken);
+
+        assert.notEqual(oldAuthToken, null);
+        assert.equal(oldAuthToken.username, 'bob');
+        assert.equal(oldSignedAuthToken, initialSignedAuthToken);
 
         let privateChannel2 = client.subscribe('priv2', {waitForAuth: true});
 
